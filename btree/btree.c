@@ -67,14 +67,10 @@
 #define BUFFER_SIZE         256
 #define ALIGNMET            (1UL << 21)
 
-#define DEFAULT_NELEMENTS   (3400UL << 20)
+#define DEFAULT_NELEMENTS   2500000000UL
 #define DEFAULT_TREE_ORDER  16
 
-#ifdef _OPENMP
-#define DEFAULT_NLOOKUP     2000000000UL
-#else
-#define DEFAULT_NLOOKUP     50000000UL
-#endif
+#define DEFAULT_NLOOKUP     4000000000UL
 
 size_t allocator_stat = 0;
 
