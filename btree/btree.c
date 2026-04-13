@@ -911,27 +911,10 @@ int main(int argc, char **argv)
 	struct element *elms  = allocate((nelements / 2) * sizeof(struct element));
 	struct element *elms2 = allocate((nelements / 2) * sizeof(struct element));
 
-#define PROGRESS_WIDTH 50
-	size_t last_pct = 0;
 	for (size_t i = 0; i < nelements; i += 2) {
 		root = insert(root, i,                 (uint64_t)&elms[i / 2]);
 		root = insert(root, nelements - i - 1, (uint64_t)&elms2[i / 2]);
-
-		size_t pct   = (i + 2) * 100 / nelements;
-		if (pct != last_pct) {
-			size_t filled = pct * PROGRESS_WIDTH / 100;
-			printf("\rInserting: [");
-			for (size_t b = 0; b < PROGRESS_WIDTH; b++)
-				putchar(b < filled ? '#' : '.');
-			printf("] %3zu%%", pct);
-			fflush(stdout);
-			last_pct = pct;
-		}
 	}
-	printf("\rInserting: [");
-	for (size_t b = 0; b < PROGRESS_WIDTH; b++) putchar('#');
-	printf("] 100%%\n");
-#undef PROGRESS_WIDTH
 
 	printf("Actual memory:   %zu MB\n", allocator_stat >> 20);
 
