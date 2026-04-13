@@ -67,7 +67,7 @@
 #define BUFFER_SIZE         256
 #define ALIGNMET            (1UL << 21)
 
-#define DEFAULT_MEMORY_GB   8
+#define DEFAULT_NELEMENTS   (3400UL << 20)
 #define DEFAULT_TREE_ORDER  16
 
 #ifdef _OPENMP
@@ -199,11 +199,11 @@ void usage_2(void) {
 }
 
 void usage_3(void) {
-	printf("Usage: ./btree [--memory <gb>] [--nlookup <n>] [--order <n>]\n");
+	printf("Usage: ./btree [--nelements <n>] [--nlookup <n>] [--order <n>]\n");
 	printf("\twhere %d <= order <= %d\n", MIN_ORDER, MAX_ORDER);
-	printf("\tmemory:  target memory usage in GB    (default: %d)\n",  DEFAULT_MEMORY_GB);
-	printf("\tnlookup: number of lookups to perform (default: %zu)\n", DEFAULT_NLOOKUP);
-	printf("\torder:   B+ tree order                (default: %d)\n",  DEFAULT_TREE_ORDER);
+	printf("\tnelements: number of elements to insert (default: %zu)\n", DEFAULT_NELEMENTS);
+	printf("\tnlookup:   number of lookups to perform (default: %zu)\n", DEFAULT_NLOOKUP);
+	printf("\torder:     B+ tree order                (default: %d)\n",  DEFAULT_TREE_ORDER);
 }
 
 void enqueue(node *new_node) {
@@ -861,22 +861,22 @@ static void print_memory_prediction(size_t nelements, int tree_order)
 }
 
 static void print_usage(const char *prog) {
-	fprintf(stderr, "Usage: %s [--memory <gb>] [--nlookup <n>] [--order <n>]\n", prog);
-	fprintf(stderr, "  --memory  <gb>   target memory usage in GB          (default: %d)\n", DEFAULT_MEMORY_GB);
-	fprintf(stderr, "  --nlookup <n>    number of lookup iterations         (default: %zu)\n", DEFAULT_NLOOKUP);
-	fprintf(stderr, "  --order   <n>    B+ tree order, %d-%d                (default: %d)\n",
+	fprintf(stderr, "Usage: %s [--nelements <n>] [--nlookup <n>] [--order <n>]\n", prog);
+	fprintf(stderr, "  --nelements <n>  number of elements to insert        (default: %zu)\n", DEFAULT_NELEMENTS);
+	fprintf(stderr, "  --nlookup   <n>  number of lookup iterations         (default: %zu)\n", DEFAULT_NLOOKUP);
+	fprintf(stderr, "  --order     <n>  B+ tree order, %d-%d                (default: %d)\n",
 	        MIN_ORDER, MAX_ORDER, DEFAULT_TREE_ORDER);
 }
 
 int main(int argc, char **argv)
 {
-	size_t memory_gb  = DEFAULT_MEMORY_GB;
+	size_t nelements  = DEFAULT_NELEMENTS;
 	size_t nlookup    = DEFAULT_NLOOKUP;
 	int    tree_order = DEFAULT_TREE_ORDER;
 
 	for (int i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "--memory") == 0 && i + 1 < argc) {
-			memory_gb = (size_t)strtoull(argv[++i], NULL, 0);
+		if (strcmp(argv[i], "--nelements") == 0 && i + 1 < argc) {
+			nelements = (size_t)strtoull(argv[++i], NULL, 0);
 		} else if (strcmp(argv[i], "--nlookup") == 0 && i + 1 < argc) {
 			nlookup = (size_t)strtoull(argv[++i], NULL, 0);
 		} else if (strcmp(argv[i], "--order") == 0 && i + 1 < argc) {
@@ -897,8 +897,6 @@ int main(int argc, char **argv)
 
 	order = tree_order;
 
-	size_t nelements = nelements_from_memory(memory_gb << 30, tree_order);
-
 	printf("BTree Elements: %zuM\n", nelements / 1000000);
 	printf("BTree #Lookups: %zuM\n", nlookup   / 1000000);
 	print_memory_prediction(nelements, tree_order);
@@ -911,6 +909,13 @@ int main(int argc, char **argv)
 	struct element *elms  = allocate((nelements / 2) * sizeof(struct element));
 	struct element *elms2 = allocate((nelements / 2) * sizeof(struct element));
 
+	for (size_t i = 0; i < nelements / 2; i++) {
+		elms[i].payload  = i + 1;
+		elms[i].payload2 = i + 1;
+		elms2[i].payload  = i + 1;
+		elms2[i].payload2 = i + 1;
+	}
+
 	for (size_t i = 0; i < nelements; i += 2) {
 		root = insert(root, i,                 (uint64_t)&elms[i / 2]);
 		root = insert(root, nelements - i - 1, (uint64_t)&elms2[i / 2]);
@@ -919,28 +924,29 @@ int main(int argc, char **argv)
 	printf("Actual memory:   %zu MB\n", allocator_stat >> 20);
 
 	uint64_t sum = 0;
+	uint64_t hits = 0;
 	struct timeval start, end;
 	gettimeofday(&start, NULL);
 
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for reduction(+:sum) reduction(+:hits)
 #endif
 	for (size_t i = 0; i < nlookup; i++) {
-		size_t rdn = redisLrand48();
+		size_t rdn = (size_t)(i * 6364136223846793005ULL + 1442695040888963407ULL);
 		record *r = find(root, rdn % nelements, false, NULL);
 		if (r) {
 			struct element *e = (struct element *)r->value;
-			if (e) sum += e->payload;
+			if (e) { sum += e->payload; hits++; }
 		}
 		r = find(root, ((rdn + 1) << 2) % nelements, false, NULL);
 		if (r) {
 			struct element *e = (struct element *)r->value;
-			if (e) sum += e->payload;
+			if (e) { sum += e->payload; hits++; }
 		}
 	}
 
 	gettimeofday(&end, NULL);
-	printf("got %zu matches in %zu seconds\n", sum, end.tv_sec - start.tv_sec);
+	printf("hits: %zu  sum: %zu  time: %zu seconds\n", hits, sum, end.tv_sec - start.tv_sec);
 
 	return EXIT_SUCCESS;
 }
