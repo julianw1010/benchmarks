@@ -1,3 +1,4 @@
+hashjoin
 bench_hashjoin_mt
 bench_hashjoin_st
 *.o
