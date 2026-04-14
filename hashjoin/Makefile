@@ -23,18 +23,16 @@ SRC_S=src/hashjoin.c src/murmurhash.c
 DEPS=src/config.h src/murmur3.h
 
 # the targets
-all : bin/bench_hashjoin_st bin/bench_hashjoin_mt
+all : bench_hashjoin_st bench_hashjoin_mt
 
 ###############################################################################
 # HashJoin
 ###############################################################################
 
-bin/bench_hashjoin_st: $(SRC_S) $(DEPS)
-	mkdir -p bin
+bench_hashjoin_st: $(SRC_S) $(DEPS)
 	$(CC) $(INCLUDES) $(CFLAGS) $(SRC_S) -o $@  $(COMMON_LIBS)
 
-bin/bench_hashjoin_mt:  $(SRC_M) $(DEPS)
-	mkdir -p bin
+bench_hashjoin_mt:  $(SRC_M) $(DEPS)
 	$(CC) $(INCLUDES) $(CFLAGS) -fopenmp $(SRC_M) -o $@  $(COMMON_LIBS)
 
 ###############################################################################
@@ -42,4 +40,4 @@ bin/bench_hashjoin_mt:  $(SRC_M) $(DEPS)
 ###############################################################################
 
 clean:
-	rm -rf bin/*
+	rm -f bench_hashjoin_st bench_hashjoin_mt
