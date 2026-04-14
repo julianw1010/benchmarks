@@ -8,36 +8,30 @@
 ###############################################################################
 
 CC = gcc
-CXX = g++
 
 # cflags used
 CFLAGS=-O3 -march=native
-CXXFLAGS=-O3 -march=native
 
 # common libraries used
 COMMON_LIBS=-lrt -ldl -lpthread -lm
 
-# sources for single- and multi-threaded builds
-SRC_M=src/hashjoin.c src/murmurhash.c
-SRC_S=src/hashjoin.c src/murmurhash.c
+# sources
+SRC=src/hashjoin.c src/murmurhash.c
 DEPS=src/config.h src/murmur3.h
 
 # the targets
-all : bench_hashjoin_st bench_hashjoin_mt
+all : hashjoin
 
 ###############################################################################
 # HashJoin
 ###############################################################################
 
-bench_hashjoin_st: $(SRC_S) $(DEPS)
-	$(CC) $(INCLUDES) $(CFLAGS) $(SRC_S) -o $@  $(COMMON_LIBS)
-
-bench_hashjoin_mt:  $(SRC_M) $(DEPS)
-	$(CC) $(INCLUDES) $(CFLAGS) -fopenmp $(SRC_M) -o $@  $(COMMON_LIBS)
+hashjoin: $(SRC) $(DEPS)
+	$(CC) $(INCLUDES) $(CFLAGS) -fopenmp $(SRC) -o $@ $(COMMON_LIBS)
 
 ###############################################################################
 # Clean
 ###############################################################################
 
 clean:
-	rm -f bench_hashjoin_st bench_hashjoin_mt
+	rm -f hashjoin
