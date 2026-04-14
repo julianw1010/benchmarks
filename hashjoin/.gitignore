@@ -1,9 +1,0 @@
-hashjoin
-bench_hashjoin_mt
-bench_hashjoin_st
-*.o
-*.o-omp
-*.a
-*.so
-*.o-mt
-*.o-omp-omp
