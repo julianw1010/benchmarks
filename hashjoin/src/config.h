@@ -26,12 +26,6 @@
 
 #define CONFIG_LARGE_PAGE_SIZE (1 << 21)
 
-///< define this if you have a modified kernel with Mitosis support
-#define CONFIG_HAVE_MODIFIED_KERNEL 1
-
-///< the name of the shared memory file created
-#define CONFIG_SHM_FILE_NAME "/tmp/mitosis-hashjoin-bench"
-
 ///< the random seed
 #define CONFIG_RAND_SEED 42
 
@@ -49,7 +43,6 @@
 
 ///< the key stride for the inner table
 #define CONFIG_INNER_KEY_STRIDE 4
-
 
 ///< the size of the tuple in quad words
 #define CONFIG_ELEMENT_TUPLE_SIZE 15

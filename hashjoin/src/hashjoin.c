@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -51,7 +52,7 @@ struct htelm
 };
 
 
-///< this function allocates mmeory with an alignment constraint
+///< this function allocates memory with an alignment constraint
 static void allocate(void **memptr, size_t size, size_t align)
 {
     printf("allocating %zu MB memory with alignment %zu \n", size >> 20, align);
@@ -70,16 +71,24 @@ static inline uint64_t hash(uint64_t key)
     return out[0];
 }
 
-int real_main(int argc, char *argv[]);
-int real_main(int argc, char *argv[])
+
+int main(int argc, char *argv[])
 {
+    struct timeval ttotal_start, ttotal_end;
+    gettimeofday(&ttotal_start, NULL);
+
+    for (int i = 0; i < argc; i++) {
+        printf("%s ", argv[i]);
+    }
+    printf("\n");
+
     size_t hashsize = CONFIG_DEFAULT_HASH_SIZE;
     size_t nlookups = CONFIG_DEFAULT_NUM_LOOKUPS;
     size_t outersize = CONFIG_DEFAULT_OUTER_SIZE;
     size_t innersize = CONFIG_DEFAULT_INNER_SIZE;
 
     int c;
-    while ((c = getopt(argc, argv, "s:n:o:i:")) != -1) {
+    while ((c = getopt(argc, argv, "s:n:o:i:h")) != -1) {
         switch (c) {
         case 's':
             hashsize = strtol(optarg, NULL, 10);
@@ -92,13 +101,22 @@ int real_main(int argc, char *argv[])
             break;
         case 'i':
             innersize = strtol(optarg, NULL, 10);
-            ;
             break;
+        case 'h':
+            printf("usage: %s [-s hashsize] [-n nlookups] [-o outersize] [-i innersize]\n",
+                   argv[0]);
+            return 0;
         default:
             printf("unknown option '%c'\n", c);
             return -1;
         }
     }
+
+#ifdef _OPENMP
+    printf("openmp: on\n");
+#else
+    printf("openmp: off\n");
+#endif
 
     printf("Hashtable Size: %zuMB\n", (hashsize * sizeof(struct htelm *)) >> 20);
     printf("Datatable Size Size: %zuMB\n", (outersize * sizeof(struct element)) >> 20);
@@ -138,18 +156,7 @@ int real_main(int argc, char *argv[])
         table[i].key = i;
     }
 
-    fprintf(stderr, "signalling readyness to %s\n", CONFIG_SHM_FILE_NAME ".ready");
-    FILE *fd2 = fopen(CONFIG_SHM_FILE_NAME ".ready", "w");
-
-    if (fd2 == NULL) {
-        fprintf(stderr, "ERROR: could not create the shared memory file descriptor\n");
-        exit(-1);
-    }
-
-    usleep(100);
-
     size_t matches = 0;
-    size_t loaded = 0;
 
     struct timeval tstart, tend;
     gettimeofday(&tstart, NULL);
@@ -159,12 +166,12 @@ int real_main(int argc, char *argv[])
 #endif
     for (size_t j = 0; j < nlookups; j++) {
         for (size_t i = 0; i < outersize; i++) {
-            uint64_t hash[2]; /* Output for the hash */
+            uint64_t h[2];
 
             size_t idx = i;
-            MurmurHash3_x64_128(&table[idx].key, sizeof(table[idx].key), CONFIG_RAND_SEED, hash);
+            MurmurHash3_x64_128(&table[idx].key, sizeof(table[idx].key), CONFIG_RAND_SEED, h);
 
-            struct htelm *e = hashtable[hash[0] % hashsize];
+            struct htelm *e = hashtable[h[0] % hashsize];
             while (e) {
                 if (e->key == table[idx].key) {
                     matches++;
@@ -173,7 +180,7 @@ int real_main(int argc, char *argv[])
                 e = e->next;
             }
 
-            e = hashtable[hash[1] % hashsize];
+            e = hashtable[h[1] % hashsize];
             while (e) {
                 if (e->key == table[idx].key) {
                     matches++;
@@ -185,19 +192,17 @@ int real_main(int argc, char *argv[])
     }
 
     gettimeofday(&tend, NULL);
-    fprintf(stderr, "signalling done to %s\n", CONFIG_SHM_FILE_NAME ".done");
-    FILE *fd1 = fopen(CONFIG_SHM_FILE_NAME ".done", "w");
 
-    if (fd1 == NULL) {
-        fprintf(stderr, "ERROR: could not create the shared memory file descriptor\n");
-        exit(-1);
-    }
-
-    printf("got %zu matches / %zu matches per iteration of %zu \n", matches, matches / nlookups, 2 * outersize);
+    printf("got %zu matches / %zu matches per iteration of %zu \n",
+           matches, matches / nlookups, 2 * outersize);
     printf("hashtable conflicts = %zu\n", nconflicts);
 
     printf("Lookup time: %zu.%03zu\n", tend.tv_sec - tstart.tv_sec,
            (tend.tv_usec - tstart.tv_usec) / 1000);
+
+    gettimeofday(&ttotal_end, NULL);
+    printf("Total time: %zu.%03zu\n", ttotal_end.tv_sec - ttotal_start.tv_sec,
+           (ttotal_end.tv_usec - ttotal_start.tv_usec) / 1000);
 
     return 0;
 }
