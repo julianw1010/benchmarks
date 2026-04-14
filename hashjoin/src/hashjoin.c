@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
     }
 
 #ifdef _OPENMP
-    printf("openmp: on\n");
+    printf("openmp: on (max threads=%d)\n", omp_get_max_threads());
 #else
     printf("openmp: off\n");
 #endif
@@ -161,19 +161,18 @@ int main(int argc, char *argv[])
     struct timeval tstart, tend;
     gettimeofday(&tstart, NULL);
 
-#ifdef _OPENMP
-#    pragma omp parallel for reduction(+ : matches)
-#endif
     for (size_t j = 0; j < nlookups; j++) {
+#ifdef _OPENMP
+#       pragma omp parallel for reduction(+ : matches)
+#endif
         for (size_t i = 0; i < outersize; i++) {
             uint64_t h[2];
 
-            size_t idx = i;
-            MurmurHash3_x64_128(&table[idx].key, sizeof(table[idx].key), CONFIG_RAND_SEED, h);
+            MurmurHash3_x64_128(&table[i].key, sizeof(table[i].key), CONFIG_RAND_SEED, h);
 
             struct htelm *e = hashtable[h[0] % hashsize];
             while (e) {
-                if (e->key == table[idx].key) {
+                if (e->key == table[i].key) {
                     matches++;
                     break;
                 }
@@ -182,7 +181,7 @@ int main(int argc, char *argv[])
 
             e = hashtable[h[1] % hashsize];
             while (e) {
-                if (e->key == table[idx].key) {
+                if (e->key == table[i].key) {
                     matches++;
                     break;
                 }
